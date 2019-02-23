@@ -3,17 +3,16 @@ var jsesc = require('jsesc')
 
 var toRust = function (curlCommand) {
     var request = util.parseCurlCommand(curlCommand)
-    console.log(request);
+    // console.log(request)
 
     var rustCode = 'extern crate reqwest;\n'
 
     if (request.headers || request.cookies) {
-        rustCode += "use reqwest::headers::*;\n"
+        rustCode += 'use reqwest::headers::*;\n'
     }
     if (request.multipartUploads) {
-        rustCode += "use reqwest::multipart;\n"
+        rustCode += 'use reqwest::multipart;\n'
     }
-
 
     rustCode += '\nfn main() -> Result<(), reqwest::Error> {\n'
 
@@ -22,7 +21,7 @@ var toRust = function (curlCommand) {
         rustCode += '\tlet mut headers = HeaderMap::new();\n'
 
         for (var header in request.headers) {
-            rustCode += '\theaders.insert(' + header.replace(/\-/g, '_').toUpperCase() + ', "' + request.headers[header] + '".parse().unwrap());\n'
+            rustCode += '\theaders.insert(' + header.replace(/-/g, '_').toUpperCase() + ', "' + request.headers[header] + '".parse().unwrap());\n'
         }
 
         for (var cookie in request.cookies) {
@@ -35,37 +34,40 @@ var toRust = function (curlCommand) {
         rustCode += '\tlet form = multipart::From::new()'
 
         for (var part in request.multipartUploads) {
-            if (part == "image" || part == "file") {
+            if (part === 'image' || part === 'file') {
                 rustCode += '\n\t\t.file("' + part + '", "' + request.multipartUploads[part].split('@')[1] + '")?'
             } else {
                 rustCode += '\n\t\t.text("' + part + '", "' + request.multipartUploads[part] + '")'
             }
         }
-        rustCode += ";\n"
+        rustCode += ';\n'
     }
 
 
 
     rustCode += '\n\tlet res = reqwest::Client::new()\n'
+    var url = jsesc(request.url.replace(/\s*/g, ''), {
+        quotes: 'double'
+    })
 
     switch (request.method) {
         case 'get':
-            rustCode += '\t\t.get("' + request.url + '")'
-            break;
+            rustCode += '\t\t.get("' + url + '")'
+            break
         case 'post':
-            rustCode += '\t\t.post("' + request.url + '")'
-            break;
+            rustCode += '\t\t.post("' + url + '")'
+            break
         case 'put':
-            rustCode += '\t\t.put("' + request.url + '")'
-            break;
+            rustCode += '\t\t.put("' + url + '")'
+            break
         case 'patch':
-            rustCode += '\t\t.patch("' + request.url + '")'
-            break;
+            rustCode += '\t\t.patch("' + url + '")'
+            break
         case 'delete':
-            rustCode += '\t\t.delete("' + request.url + '")'
-            break;
+            rustCode += '\t\t.delete("' + url + '")'
+            break
         default:
-            break;
+            break
     }
     rustCode += '\n'
 
@@ -85,8 +87,8 @@ var toRust = function (curlCommand) {
     }
 
     if (request.data) {
-        if (typeof request.data == "string") {
-            rustCode += '\t\t.body("' + request.data.replace(/\s/g, '') + '")\n'
+        if (typeof request.data === 'string') {
+            rustCode += '\t\t.body("' + request.data.replace(/\s*/g, '') + '")\n'
         } else {
             rustCode += '\t\t.body("' + request.data + '")\n'
         }
@@ -99,8 +101,9 @@ var toRust = function (curlCommand) {
     rustCode += '\t\t.send()?\n\t\t.text()?;\n'
     // Print the result to stdout
     rustCode += '\tprintln!("{}", res);\n\n\tOk(())\n}'
+    rustCode += '\n'
 
-    return rustCode += '\n'
+    return rustCode
 }
 
 module.exports = toRust
